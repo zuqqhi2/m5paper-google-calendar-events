@@ -27,7 +27,8 @@ const long GMT_OFFSET_SEC = 60 * 60 * 9; // JST
 const int DAYLIGHT_OFFSET_SEC = 0;
 
 const int WIFI_STATUS_CHECK_INTERVAL = 1000; // 1 sec
-const int UPDATE_INTERVAL = 10 * 1000; // 10 sec
+const int SCREEN_UPDATE_INTERVAL = 60 * 1000; // 1 minutes
+const int EVENTS_UPDATE_INTERVAL_COUNT = 60; // 1 hour (SCREEN_UPDATE_INTERVAL * 60)
 
 const int MAX_DISPLAY_EVENTS = 6;
 
@@ -48,7 +49,7 @@ const int BATTERY_STR_WIDTH = 115;
 const unsigned int STATUS_BAR_PARTITION_COLOR = 31;
 
 JsonDoc prevCalendarEvents;
-JsonDoc prevShoppingItems;
+int loop_count = EVENTS_UPDATE_INTERVAL_COUNT;
 
 M5EPD_Canvas canvas(&M5.EPD);
 
@@ -95,6 +96,7 @@ void setup()
 
 void loop()
 {
+    Serial.println("START loop");
     canvas.fillRect(0, 0, M5EPD_PANEL_H, M5EPD_PANEL_W, BLACK);
 
     // Draw status bar
@@ -103,11 +105,16 @@ void loop()
     Serial.println("END draw status bar");
 
     // Get calendar events
-    Serial.println("START call listCalendarEvents function");
-    JsonDoc events = callApi(CALENDAR_API_KEY, CALENDAR_API_URL);
-    if (!events.containsKey("items")) { events = prevCalendarEvents; }
-    else { prevCalendarEvents = events; }
-    Serial.println("END call listCalendarEvents function");
+    JsonDoc events = prevCalendarEvents;
+    if (loop_count >= EVENTS_UPDATE_INTERVAL_COUNT) {
+        Serial.println("START call listCalendarEvents function");
+        events = callApi(CALENDAR_API_KEY, CALENDAR_API_URL);
+        if (!events.containsKey("items")) { events = prevCalendarEvents; }
+        else { prevCalendarEvents = events; }
+        Serial.println("END call listCalendarEvents function");
+
+        loop_count = 0;
+    }
 
     // Draw calendar events and shopping items
     Serial.println("START draw items");
@@ -118,7 +125,10 @@ void loop()
     canvas.pushCanvas(0, 0, UPDATE_MODE_GLR16);
 
     // Wait for next update timing
-    delay(UPDATE_INTERVAL);
+    loop_count += 1;
+    Serial.printf("Loop Count: %d\n", loop_count);
+    Serial.println("END loop");
+    delay(SCREEN_UPDATE_INTERVAL);
 }
 
 /**
